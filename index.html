@@ -246,6 +246,15 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .vitem .vt b{font-size:12px;color:var(--accent)} .vitem .vt span{font-size:14px;line-height:1.35} .vitem .vt small{font-size:12px;color:var(--muted)}
 </style>
 
+<script data-goatcounter="https://kurtoo357.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+// 종목 칩·영상 클릭을 이벤트로 기록 (GoatCounter, 쿠키 없음)
+document.addEventListener('click',function(e){ try{
+  var c=e.target.closest('.chip'); var v=e.target.closest('.vitem');
+  var name = c ? 'stock: '+((c.querySelector('.nm')||c).textContent.trim()) : (v ? 'video: '+((v.querySelector('.vt b')||v).textContent.trim()) : null);
+  if(name && window.goatcounter && window.goatcounter.count) window.goatcounter.count({path:name, title:name, event:true});
+}catch(_){} });
+</script>
 </head>
 <body>
 <div class="wrap">
