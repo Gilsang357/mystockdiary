@@ -217,6 +217,13 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .adder .row{display:flex;gap:8px}
 .adder .row input{flex:1}
 @media (max-width:560px){ .bdrow{grid-template-columns:6.6rem 1fr 4rem} .news{grid-template-columns:1fr} }
+.vlist{display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto}
+.vlab{font-size:13px;color:var(--muted);font-weight:600}
+.vitem{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px;cursor:pointer;color:inherit;font:inherit}
+.vitem[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.vitem img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex:0 0 auto;background:#000}
+.vitem .vt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vitem .vt b{font-size:12px;color:var(--accent)} .vitem .vt span{font-size:14px;line-height:1.35} .vitem .vt small{font-size:12px;color:var(--muted)}
 </style>
 
 </head>
@@ -518,15 +525,29 @@ function fillVoiceSelects(){ for(const who of ['A','B']){ const sel=BR.els['v'+w
   for(const v of BR.voices){ const o=el('option',{value:v.name}, v.name+(v.localService?'':' (온라인)')); if((who==='A'?BR.vA:BR.vB)===v.name) o.selected=true; sel.append(o); } }
   if(BR.els.vnote) BR.els.vnote.textContent = !TTS? '이 화면에서는 음성 읽기를 쓸 수 없어요. 아래 대본으로 읽어 주세요.' : (!BR.voices.length? '이 기기에서 한국어 음성을 찾지 못했어요. 기본 음성으로 읽어 보고, 어색하면 Windows 설정 → 시간 및 언어 → 음성에서 한국어 음성을 추가해 주세요.' : (sameVoice()? '한국어 음성이 하나뿐이라 두 사람을 목소리 높낮이로 구분해요. Microsoft Edge로 열면 자연스러운 한국어 음성(선희·인준)을 고를 수 있어요.' : '두 사람에게 서로 다른 음성을 쓰고 있어요.')); }
 function renderBriefing(){
-  const host=$('brief'); const y=window.__SITE && window.__SITE.youtube;
-  if(!y || !y.id){ host.innerHTML=''; return; } if(host.dataset.id===y.id) return; host.dataset.id=y.id; host.innerHTML='';
-  const c=el('div',{class:'card'}); c.append(el('div',{class:'hdr'}, el('h2',{},'🎬 '+(y.title||'오늘의 브리핑 영상')), el('span',{class:'by'}, y.date||'')));
+  const host=$('brief'); const Y=window.__SITE && window.__SITE.youtube;
+  const vids = Y ? (Y.videos || (Y.id? [Y] : [])) : [];
+  if(!vids.length){ host.innerHTML=''; return; }
+  const key=vids.map(v=>v.id).join(','); if(host.dataset.key===key) return; host.dataset.key=key; host.innerHTML='';
+  const c=el('div',{class:'card'});
+  const h2=el('h2',{},''), by=el('span',{class:'by'},'');
+  c.append(el('div',{class:'hdr'}, h2, by));
   const w=el('div',{style:'position:relative;width:100%;max-width:760px;margin:0 auto;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000'});
-  w.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0',title:y.title||'브리핑 영상',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''}));
-  const nt=el('p',{class:'note'}, y.note||'지아와 민준이 오늘 시장과 관심 종목을 대화로 풀어 드려요. 아래에서 숫자와 기사를 자세히 볼 수 있어요.');
-  nt.append(' ', el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
-  c.append(w, nt);
-  host.append(c);
+  const nt=el('p',{class:'note'});
+  const list=el('div',{class:'vlist'});
+  function show(k){ const y=vids[k];
+    h2.textContent='🎬 '+(y.title||'브리핑 영상'); by.textContent=y.date||'';
+    w.innerHTML=''; w.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0',title:y.title||'브리핑 영상',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''}));
+    nt.innerHTML=''; nt.append(y.note||'지아와 민준이 시장과 관심 종목을 대화로 풀어 드려요.', ' ', el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
+    list.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===k)));
+  }
+  if(vids.length>1){
+    list.append(el('div',{class:'vlab'},'영상 모아 보기'));
+    vids.forEach((y,k)=>{ const b=el('button',{type:'button',class:'vitem','aria-pressed':'false'});
+      b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/mqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'vt'}, el('b',{},y.slot||''), el('span',{},y.title||''), el('small',{},y.date||'')));
+      b.addEventListener('click',()=>show(k)); list.append(b); });
+  }
+  c.append(w, nt, list); host.append(c); show(0);
 }
 
 // ---------------- rendering ----------------
