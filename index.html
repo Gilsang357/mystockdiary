@@ -216,7 +216,27 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .linkbtn{border:0;background:none;padding:0 2px;color:var(--accent);font-size:12.5px;text-decoration:underline;text-underline-offset:2px}
 .adder .row{display:flex;gap:8px}
 .adder .row input{flex:1}
-@media (max-width:560px){ .bdrow{grid-template-columns:6.6rem 1fr 4rem} .news{grid-template-columns:1fr} }
+@media (max-width:560px){
+  .wrap{padding-inline:8px;gap:12px}
+  .card{padding:14px 12px;gap:10px;border-radius:10px}
+  .card h2{font-size:1.08rem}
+  .story{border-left-width:3px;padding-left:10px}
+  .story .hl{font-size:1.1rem;line-height:1.35}
+  .story p{max-width:none}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .tile{padding:7px 9px}
+  .bdrow{grid-template-columns:5.4rem 1fr 3.9rem;gap:6px}
+  .bdrow .lab{font-size:13px;white-space:nowrap}
+  .news{grid-template-columns:1fr}
+  .explain,.chain{padding:8px 9px}
+  details.acc>.body,details.more>.body{gap:6px}
+  .sub{padding-top:10px}
+  .vlist{margin-top:10px}
+  .vitem img{width:96px}
+  .brand p{font-size:13px}
+  .hero{gap:6px}
+  .hero>*{width:100%;text-align:left!important;align-items:flex-start!important}
+}
 .vlist{display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto}
 .vlab{font-size:13px;color:var(--muted);font-weight:600}
 .vitem{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px;cursor:pointer;color:inherit;font:inherit}
