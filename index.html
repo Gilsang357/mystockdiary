@@ -237,6 +237,28 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
   .hero{gap:6px}
   .hero>*{width:100%;text-align:left!important;align-items:flex-start!important}
 }
+/* sticky watchlist */
+.sticky{position:sticky;top:0;z-index:30;background:var(--bg);margin-inline:-16px;padding:8px 16px 6px}
+.sticky.stuck{box-shadow:0 8px 14px -12px rgba(0,0,0,.35);border-bottom:1px solid var(--line)}
+.sticky.stuck>.hdr{display:none}
+.sticky .asof{font-size:12px;color:var(--faint);font-weight:400}
+/* videos (compact strip) */
+.vtabs{display:flex;gap:6px;flex-wrap:wrap}
+.vtab{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px}
+.vtab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.vstrip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity;scrollbar-width:thin}
+.vitem.vcard{flex:0 0 210px;flex-direction:column;align-items:stretch;gap:6px;padding:6px;scroll-snap-align:start}
+.vitem.vcard img{width:100%!important;border-radius:6px}
+.vitem.vcard .vt span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px}
+.vplayer{display:flex;flex-direction:column;gap:8px}
+.vplayer .cap{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;font-size:13.5px}
+.vplayer .cap b{display:block}
+.vplayer .cap .btn{white-space:nowrap;flex:0 0 auto}
+.livebtn{display:inline-block;margin-top:6px;font-size:13px;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+@media (max-width:560px){
+  .sticky{margin-inline:-8px;padding:6px 8px 4px}
+  .vitem.vcard{flex-basis:168px}
+}
 .bwrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000}
 .bplay{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background:#000}
 .bplay img{width:100%;height:100%;object-fit:cover;display:block}
@@ -275,7 +297,8 @@ document.addEventListener('click',function(e){ try{
     </div>
   </header>
 
-  <section aria-label="관심 종목">
+  <div id="stickTop" aria-hidden="true" style="height:1px;margin-bottom:-19px"></div>
+  <section aria-label="관심 종목" class="sticky" id="watchsec">
     <div class="hdr" style="margin-bottom:8px">
       <h3>관심 종목</h3>
       <button class="btn small" id="editBtn" type="button" aria-pressed="false" hidden>편집</button>
@@ -289,8 +312,7 @@ document.addEventListener('click',function(e){ try{
     <p class="note" id="reqnote" hidden></p>
   </section>
 
-  <section id="brief" aria-label="오늘의 브리핑 영상"></section>
-  <section id="basics" aria-label="주린이 기본 상식 영상"></section>
+  <section id="brief" aria-label="영상"></section>
 
   <main id="main"><div class="card empty">불러오는 중…</div></main>
 
@@ -560,46 +582,37 @@ function fillVoiceSelects(){ for(const who of ['A','B']){ const sel=BR.els['v'+w
   for(const v of BR.voices){ const o=el('option',{value:v.name}, v.name+(v.localService?'':' (온라인)')); if((who==='A'?BR.vA:BR.vB)===v.name) o.selected=true; sel.append(o); } }
   if(BR.els.vnote) BR.els.vnote.textContent = !TTS? '이 화면에서는 음성 읽기를 쓸 수 없어요. 아래 대본으로 읽어 주세요.' : (!BR.voices.length? '이 기기에서 한국어 음성을 찾지 못했어요. 기본 음성으로 읽어 보고, 어색하면 Windows 설정 → 시간 및 언어 → 음성에서 한국어 음성을 추가해 주세요.' : (sameVoice()? '한국어 음성이 하나뿐이라 두 사람을 목소리 높낮이로 구분해요. Microsoft Edge로 열면 자연스러운 한국어 음성(선희·인준)을 고를 수 있어요.' : '두 사람에게 서로 다른 음성을 쓰고 있어요.')); }
 function renderBriefing(){
-  const host=$('brief'); const Y=window.__SITE && window.__SITE.youtube;
-  const vids = Y ? (Y.videos || (Y.id? [Y] : [])) : [];
-  if(!vids.length){ host.innerHTML=''; return; }
-  const key=vids.map(v=>v.id).join(','); if(host.dataset.key===key) return; host.dataset.key=key; host.innerHTML='';
-  const c=el('div',{class:'card'});
-  const h2=el('h2',{},''), by=el('span',{class:'by'},'');
-  c.append(el('div',{class:'hdr'}, h2, by));
-  const w=el('div',{style:'position:relative;width:100%;max-width:760px;margin:0 auto;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000'});
-  const nt=el('p',{class:'note'});
-  const list=el('div',{class:'vlist'});
-  function show(k){ const y=vids[k];
-    h2.textContent='🎬 '+(y.title||'브리핑 영상'); by.textContent=y.date||'';
-    w.innerHTML=''; w.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0',title:y.title||'브리핑 영상',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''}));
-    nt.innerHTML=''; nt.append(y.note||'지아와 민준이 시장과 관심 종목을 대화로 풀어 드려요.', ' ', el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
-    list.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===k)));
+  const host=$('brief'); const Y=(window.__SITE && window.__SITE.youtube)||{};
+  const vids = Y.videos || (Y.id? [Y] : []), eps = Y.basics || [];
+  if(!vids.length && !eps.length){ host.innerHTML=''; return; }
+  const key=vids.map(v=>v.id).join(',')+'|'+eps.map(v=>v.id).join(','); if(host.dataset.key===key) return; host.dataset.key=key; host.innerHTML='';
+  const groups=[['news','🎬 시황 영상',vids],['basics','📚 주식 기본 상식',eps]].filter(g=>g[2].length);
+  let tab=groups[0][0]; try{ const t=localStorage.getItem('msd-vtab'); if(groups.find(g=>g[0]===t)) tab=t; }catch(_){}
+  const c=el('div',{class:'card'}); const tabs=el('div',{class:'vtabs',role:'tablist'});
+  c.append(el('div',{class:'hdr'}, el('h2',{},'영상'), tabs));
+  const player=el('div',{class:'vplayer',hidden:''}); const strip=el('div',{class:'vstrip'});
+  function close(){ player.hidden=true; player.innerHTML=''; strip.querySelectorAll('.vcard').forEach(b=>b.setAttribute('aria-pressed','false')); }
+  function play(y, btn){
+    player.innerHTML=''; player.hidden=false;
+    const w=el('div',{class:'bwrap'}); w.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0&autoplay=1',title:y.title||'영상',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''}));
+    const x=el('button',{type:'button',class:'btn small','aria-label':'영상 닫기'},'닫기 ×'); x.addEventListener('click',close);
+    const t=el('div',{}, el('b',{},(y.slot||y.ep||'')+' · '+(y.title||'')), el('span',{class:'muted'},(y.date||y.len||'')+' '), el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
+    player.append(w, el('div',{class:'cap'}, t, x));
+    strip.querySelectorAll('.vcard').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
+    player.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
-  if(vids.length>1){
-    list.append(el('div',{class:'vlab'},'영상 모아 보기'));
-    vids.forEach((y,k)=>{ const b=el('button',{type:'button',class:'vitem','aria-pressed':'false'});
-      b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/mqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'vt'}, el('b',{},y.slot||''), el('span',{},y.title||''), el('small',{},y.date||'')));
-      b.addEventListener('click',()=>show(k)); list.append(b); });
-  }
-  c.append(w, nt, list); host.append(c); show(0);
+  function fill(){
+    strip.innerHTML=''; const g=groups.find(g=>g[0]===tab);
+    tabs.querySelectorAll('.vtab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.k===tab)));
+    g[2].forEach(y=>{ const b=el('button',{type:'button',class:'vitem vcard','aria-pressed':'false'});
+      b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/mqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'vt'}, el('b',{},y.slot||y.ep||''), el('span',{},y.title||''), el('small',{},y.date||y.len||'')));
+      b.addEventListener('click',()=>play(y,b)); strip.append(b); });
+    }
+  for(const [k,lab,list] of groups){ const b=el('button',{type:'button',class:'vtab',role:'tab','data-k':k,'aria-selected':'false'}, `${lab} ${list.length}`);
+    b.addEventListener('click',()=>{ tab=k; try{ localStorage.setItem('msd-vtab',k); }catch(_){} close(); fill(); }); tabs.append(b); }
+  c.append(player, strip); host.append(c); fill();
 }
-function renderBasics(){
-  const host=$('basics'); const Y=window.__SITE && window.__SITE.youtube; const eps=(Y && Y.basics)||[];
-  if(!eps.length){ host.innerHTML=''; return; }
-  const key=eps.map(v=>v.id).join(','); if(host.dataset.key===key) return; host.dataset.key=key; host.innerHTML='';
-  const c=el('div',{class:'card'}); const h2=el('h2',{},'📚 주린이를 위한 주식 기본 상식'); c.append(el('div',{class:'hdr'}, h2, el('span',{class:'by'}, `${eps.length}편 · 처음 오셨다면 1편부터`)));
-  const w=el('div',{style:'width:100%;max-width:760px;margin:0 auto'}); const nt=el('p',{class:'note'}); const list=el('div',{class:'vlist'});
-  function show(k, play){ const y=eps[k]; w.innerHTML='';
-    if(play){ const f=el('div',{style:'position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000'}); f.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0&autoplay=1',title:y.title||'',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''})); w.append(f); }
-    else { const b=el('button',{type:'button',class:'bplay','aria-label':(y.ep||'')+' '+(y.title||'')+' 재생'}); b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/hqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'pb'})); b.addEventListener('click',()=>{ try{ window.goatcounter && window.goatcounter.count && window.goatcounter.count({path:'basics: '+(y.ep||y.id), title:'basics: '+(y.ep||y.id), event:true}); }catch(_){} show(k,true); }); const bw=el('div',{class:'bwrap'}); bw.append(b); w.append(bw); }
-    nt.innerHTML=''; nt.append(el('b',{},(y.ep?y.ep+' · ':'')+(y.title||'')), el('br'), y.note||'', ' ', el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
-    list.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===k)));
-  }
-  if(eps.length>1){ list.append(el('div',{class:'vlab'},'전체 편 보기'));
-    eps.forEach((y,k)=>{ const b=el('button',{type:'button',class:'vitem','aria-pressed':'false'}); b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/mqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'vt'}, el('b',{},y.ep||''), el('span',{},y.title||''), el('small',{},y.len||''))); b.addEventListener('click',()=>show(k,true)); list.append(b); }); }
-  c.append(w, nt, list); host.append(c); show(0,false);
-}
+function renderBasics(){}
 
 // ---------------- rendering ----------------
 function renderRail(){
@@ -645,6 +658,7 @@ function renderMain(){
   left.append(el('div',{class:'name'},m.name), el('div',{class:'meta'}, `${m.code} · ${m.market} · ${m.sector||''} · 시가총액 ${m.marketCapRank?m.marketCapRank+'위':''}`));
   const right=el('div',{style:'text-align:right'});
   right.append(el('div',{class:'price '+dirc(m.changeRate)}, won(m.price)+'원'), el('div',{class:'chg '+dirc(m.changeRate)}, `${sgn(m.price-m.prevClose)}${won(Math.abs(m.price-m.prevClose))} (${pct(m.changeRate,2)})`), el('div',{class:'tiny muted'}, '기준 '+(m.tradeTime? m.tradeTime.slice(4,6)+'.'+m.tradeTime.slice(6,8)+' '+m.tradeTime.slice(9,11)+':'+m.tradeTime.slice(11,13) : '')+(st.updatedAt? ' · 분석 '+fmtAt(st.updatedAt):'')));
+  right.append(el('a',{href:'https://finance.daum.net/quotes/A'+encodeURIComponent(m.code),target:'_blank',rel:'noopener',class:'livebtn'},'지금 가격 보기 ↗ 다음 금융'));
   h.append(left,right); hero.append(h);
   if(A && !A.short){ const pills=el('div',{class:'pills'}); for(const [n,lab] of [['5','1주'],['21','1개월'],['63','3개월'],['250','1년']]){ const ws=windowSum(A,+n); if(ws) pills.append(el('span',{class:'pill'}, lab+' ', el('b',{class:dirc(ws.total)},pct(ws.total)))); }
     pills.append(el('span',{class:'pill'},'52주 범위 ', el('b',{},won(m.low52w)+' ~ '+won(m.high52w))));
@@ -1155,6 +1169,7 @@ $('editBtn').addEventListener('click',()=>{ state.editing=!state.editing; $('edi
 $('refreshBtn').addEventListener('click',requestRefresh);
 let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(renderMain,150); });
 
+(function(){ const sen=document.getElementById('stickTop'), sec=document.getElementById('watchsec'); if(sen && sec && 'IntersectionObserver' in window){ new IntersectionObserver(es=>{ for(const e of es) sec.classList.toggle('stuck', !e.isIntersecting); }).observe(sen); } })();
 let renderQueued=false; function queue(){ if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; renderRail(); renderRunInfo(); renderBriefing(); renderBasics(); renderMain(); }); }
 function subscribeSel(){
   if(state.unsubSel){ state.unsubSel(); state.unsubSel=null; }
