@@ -237,6 +237,13 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
   .hero{gap:6px}
   .hero>*{width:100%;text-align:left!important;align-items:flex-start!important}
 }
+.ftab{display:grid;grid-template-columns:minmax(8rem,1.4fr) repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:13.5px}
+.ftab>div{background:var(--panel);padding:7px 9px}
+.ftab .fh{font-size:12px;color:var(--muted);font-weight:600;background:var(--panel2)}
+.ftab .fc{display:flex;flex-direction:column;font-family:var(--mono)} .ftab .fc small{font-family:var(--body);font-size:11.5px;color:var(--muted)}
+.flist{display:flex;flex-direction:column;gap:2px;font-size:13px}
+.frow{display:grid;grid-template-columns:3.2rem 1.6fr 1fr 1fr;gap:6px;padding:4px 0;border-bottom:1px dashed var(--line)}
+@media (max-width:560px){ .ftab{grid-template-columns:6.4rem repeat(3,1fr);font-size:12.5px} .ftab>div{padding:6px} .frow{grid-template-columns:2.8rem 1fr;row-gap:0} .frow{display:flex;flex-wrap:wrap;column-gap:10px} .frow span:nth-child(1){width:2.8rem} .frow span:nth-child(2){flex:1 1 calc(100% - 3.6rem)} .frow span:nth-child(3){margin-left:3.4rem} .frow span:nth-child(3),.frow span:nth-child(4){font-size:12px;color:var(--muted)} }
 /* sticky watchlist */
 .sticky{position:sticky;top:0;z-index:30;background:var(--bg);margin-inline:-16px;padding:8px 16px 6px}
 .sticky.stuck{box-shadow:0 8px 14px -12px rgba(0,0,0,.35);border-bottom:1px solid var(--line)}
@@ -877,6 +884,17 @@ const toMin=t=>{ const [h,m]=t.split(':').map(Number); return h*60+m; };
 // ---------------- overnight US card ----------------
 function ols(X, y){ const p=X[0].length; const A=Array.from({length:p},()=>Array(p).fill(0)), b=Array(p).fill(0);
   for(let i=0;i<y.length;i++){ for(let a=0;a<p;a++){ b[a]+=X[i][a]*y[i]; for(let c=0;c<p;c++) A[a][c]+=X[i][a]*X[i][c]; } } for(let a=1;a<p;a++) A[a][a]+=1e-9; return solve(A,b); }
+function fearStudy(K){ // days the index fell far more than last night's US alone explains, and what came next (rolling 250-day OLS, no look-ahead)
+  const F=state.factors; const SOX=flat(F, m=>m&&m.sox), NDX=flat(F, m=>m&&m.ndx);
+  const us=(rows,d0,d1)=>{ const i0=lastBefore(rows,d0), i1=lastBefore(rows,d1); if(i0<0||i1<0) return 0; return i1===i0?0:Math.log(rows[i1].c/rows[i0].c); };
+  const R=[]; for(let t=1;t<K.length;t++){ const a=K[t], b=K[t-1]; if(!a.o||!a.c||!b.c) continue; R.push({t, date:a.date, r:Math.log(a.c/b.c), sox:us(SOX,b.date,a.date), ndx:us(NDX,b.date,a.date)}); }
+  for(let i=0;i<R.length;i++){ const tr=R.slice(Math.max(0,i-250),i); if(tr.length<60) continue; const b=ols(tr.map(r=>[1,r.sox,r.ndx]), tr.map(r=>r.r)); R[i].pr=b[0]+b[1]*R[i].sox+b[2]*R[i].ndx; R[i].res=R[i].r-R[i].pr; }
+  const ev=R.filter(x=>x.pr!=null); if(ev.length<60) return null;
+  const C=K.map(k=>k.c); const fwd=(t,n)=> t+n<C.length? C[t+n]/C[t]-1 : null;
+  const summ=sel=>{ const o={n:sel.length}; for(const n of [1,5,10]){ const v=sel.map(x=>fwd(x.t,n)).filter(z=>z!=null); o[n]= v.length? {k:v.length, mean:v.reduce((s,z)=>s+z,0)/v.length, up:v.filter(z=>z>0).length/v.length} : null; } return o; };
+  const U=ev.filter(x=>x.res<=-0.03); const first=[]; let last=-99; for(const x of U){ if(x.t-last>5){ first.push(x); last=x.t; } }
+  return {from:ev[0].date, to:ev[ev.length-1].date, all:summ(ev.filter(x=>x.t+1<C.length)), U:summ(U), first:summ(first), list:U.slice(-8).reverse().map(x=>({date:x.date, act:Math.exp(x.r)-1, pred:Math.exp(x.pr)-1, f1:fwd(x.t,1), f5:fwd(x.t,5)})), today:ev[ev.length-1]};
+}
 function usGap(K){ // K: [{date,o,c}] ascending. Open gap and full-day move explained only by last night's US (SOX, Nasdaq100), OLS with intercept on the previous 250 days
   const F=state.factors; const SOX=flat(F, m=>m&&m.sox), NDX=flat(F, m=>m&&m.ndx);
   const us=(rows,d0,d1)=>{ const i0=lastBefore(rows,d0), i1=lastBefore(rows,d1); if(i0<0||i1<0) return 0; return i1===i0?0:Math.log(rows[i1].c/rows[i0].c); };
@@ -925,6 +943,24 @@ function renderUS(main, ctx){
     if(SM && m){ const host=el('div',{class:'chart',id:'c-usgap',style:'min-height:240px'}); sub.append(el('h3',{style:'margin-top:6px'}, `밤사이 ${SM.xk==='sox'?'미국 반도체지수':'나스닥100'}와 다음 날 ${m.name} 시초가`, el('span',{},'점 하나가 하루')), host); sub.whenOpen(()=>drawUSScatter(host, SM, m)); }
     c.append(sub);
   }
+  // fear study: days that fell far more than the US explains
+  if(MI && KI.length){ const FS=fearStudy(KI); if(FS && FS.U.n>=5){
+    const d5=FS.U[5], a5=FS.all[5]; const dt=x=>{ const z=String(x).replace(/-/g,''); return z.slice(4,6)+'.'+z.slice(6,8); };
+    const sub=accSub('us-fear', '예상보다 훨씬 더 빠진 날, 그 뒤엔?', `지난 ${FS.U.n}번 · 5일 뒤 오른 비율 ${Math.round(d5.up*100)}% (평소 ${Math.round(a5.up*100)}%)`);
+    const tdy=FS.today; if(tdy.res<=-0.03) sub.append(el('p',{class:'sentence'}, `${dt(tdy.date)}도 이런 날이었어요. 어젯밤 미국 장만 보면 ${IDX}는 ${pct(Math.exp(tdy.pr)-1,1)} 정도였을 하루가 실제로는 ${pct(Math.exp(tdy.r)-1,1)}로 끝났어요. "미국 숫자로 설명되지 않는 하락"이라 공포 때문에 지나치게 빠진 것 아니냐는 이야기가 나와요. 그럼 지난 1년, 이런 날 뒤에는 실제로 어땠을까요?`));
+    else sub.append(el('p',{class:'sentence'}, `어젯밤 미국 장으로 예상한 것보다 ${IDX}가 3%p 이상 더 빠진 날을 "공포형 하락"으로 보고, 그 뒤 며칠의 흐름을 모아 봤어요.`));
+    const tb=el('div',{class:'ftab'}); const hd=['','다음 날','5일 뒤','10일 뒤']; tb.append(...hd.map(h=>el('div',{class:'fh'},h)));
+    const cell=o=> o? el('div',{class:'fc'}, el('b',{class:dirc(o.mean)},pct(o.mean,1)), el('small',{},`오른 비율 ${Math.round(o.up*100)}%`)) : el('div',{class:'fc'},'—');
+    for(const [lab,S] of [['평소 (모든 날)',FS.all],[`공포형 하락 날 (${FS.U.n}번)`,FS.U],[`그중 하락이 시작된 첫날만 (${FS.first.n}번)`,FS.first]]){ tb.append(el('div',{class:'fl'},lab), cell(S[1]), cell(S[5]), cell(S[10])); }
+    sub.append(tb);
+    const f1=FS.U[1], fs5=FS.first[5];
+    sub.append(el('p',{class:'sentence'}, `읽는 법: 이런 날 다음 날 오른 비율은 ${Math.round(f1.up*100)}%로 평소(${Math.round(FS.all[1].up*100)}%)와 비슷했어요. 5일 뒤를 보면 오른 비율이 ${Math.round(d5.up*100)}%로 평소(${Math.round(a5.up*100)}%)보다 낮았고, 하락이 시작된 첫날만 따로 보면 ${Math.round(fs5.up*100)}%였어요. 첫날 반등이 나와도 며칠 더 흔들린 경우가 많았다는 뜻이에요. "예상보다 많이 빠졌으니 곧 회복한다"는 공식은 지난 1년 데이터에선 뚜렷하지 않았어요.`));
+    const L=el('div',{class:'flist'}); L.append(el('div',{class:'vlab'},'최근 공포형 하락 날'));
+    for(const x of FS.list){ L.append(el('div',{class:'frow'}, el('span',{class:'num'},dt(x.date)), el('span',{},'예상 ',el('b',{class:dirc(x.pred)},pct(x.pred,1)),' → 실제 ',el('b',{class:dirc(x.act)},pct(x.act,1))), el('span',{},'다음 날 ',el('b',{class:dirc(x.f1)},x.f1==null?'—':pct(x.f1,1))), el('span',{},'5일 뒤 ',el('b',{class:dirc(x.f5)},x.f5==null?'아직':pct(x.f5,1))))); }
+    sub.append(L);
+    sub.append(el('p',{class:'note'},`계산 방법: 매일 그 전 최대 250거래일만 써서 "미국 반도체지수·나스닥100으로 본 ${IDX} 예상 등락"을 구하고(미래 데이터 안 씀), 실제가 예상보다 3%p 이상 낮았던 날을 골랐어요. 이후 등락은 그날 종가 기준이에요. 기간 ${dt(FS.from)}~${dt(FS.to)}로 1년이 채 안 되고, 이 기간 지수가 크게 오른 해라 "평소"도 높게 나와요. 표본이 적어 우연이 섞일 수 있어요. 앞으로를 알려 주는 신호가 아니며 투자 조언이 아니에요.`));
+    c.append(sub);
+  } }
   // related US stocks for the selected stock
   const su = ctx && ctx.st && ctx.st.us;
   if(su && su.peers && su.peers.length){
