@@ -237,6 +237,11 @@ details.more>.body{display:flex;flex-direction:column;gap:8px;padding-top:8px}
   .hero{gap:6px}
   .hero>*{width:100%;text-align:left!important;align-items:flex-start!important}
 }
+.bwrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000}
+.bplay{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background:#000}
+.bplay img{width:100%;height:100%;object-fit:cover;display:block}
+.bplay .pb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:50px;border-radius:12px;background:rgba(255,0,0,.88);display:flex;align-items:center;justify-content:center}
+.bplay .pb::after{content:"";border-style:solid;border-width:11px 0 11px 19px;border-color:transparent transparent transparent #fff;margin-left:4px}
 .vlist{display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto}
 .vlab{font-size:13px;color:var(--muted);font-weight:600}
 .vitem{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px;cursor:pointer;color:inherit;font:inherit}
@@ -285,6 +290,7 @@ document.addEventListener('click',function(e){ try{
   </section>
 
   <section id="brief" aria-label="오늘의 브리핑 영상"></section>
+  <section id="basics" aria-label="주린이 기본 상식 영상"></section>
 
   <main id="main"><div class="card empty">불러오는 중…</div></main>
 
@@ -577,6 +583,22 @@ function renderBriefing(){
       b.addEventListener('click',()=>show(k)); list.append(b); });
   }
   c.append(w, nt, list); host.append(c); show(0);
+}
+function renderBasics(){
+  const host=$('basics'); const Y=window.__SITE && window.__SITE.youtube; const eps=(Y && Y.basics)||[];
+  if(!eps.length){ host.innerHTML=''; return; }
+  const key=eps.map(v=>v.id).join(','); if(host.dataset.key===key) return; host.dataset.key=key; host.innerHTML='';
+  const c=el('div',{class:'card'}); const h2=el('h2',{},'📚 주린이를 위한 주식 기본 상식'); c.append(el('div',{class:'hdr'}, h2, el('span',{class:'by'}, `${eps.length}편 · 처음 오셨다면 1편부터`)));
+  const w=el('div',{style:'width:100%;max-width:760px;margin:0 auto'}); const nt=el('p',{class:'note'}); const list=el('div',{class:'vlist'});
+  function show(k, play){ const y=eps[k]; w.innerHTML='';
+    if(play){ const f=el('div',{style:'position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#000'}); f.append(el('iframe',{src:'https://www.youtube-nocookie.com/embed/'+encodeURIComponent(y.id)+'?rel=0&autoplay=1',title:y.title||'',style:'position:absolute;inset:0;width:100%;height:100%;border:0',allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',allowfullscreen:''})); w.append(f); }
+    else { const b=el('button',{type:'button',class:'bplay','aria-label':(y.ep||'')+' '+(y.title||'')+' 재생'}); b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/hqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'pb'})); b.addEventListener('click',()=>{ try{ window.goatcounter && window.goatcounter.count && window.goatcounter.count({path:'basics: '+(y.ep||y.id), title:'basics: '+(y.ep||y.id), event:true}); }catch(_){} show(k,true); }); const bw=el('div',{class:'bwrap'}); bw.append(b); w.append(bw); }
+    nt.innerHTML=''; nt.append(el('b',{},(y.ep?y.ep+' · ':'')+(y.title||'')), el('br'), y.note||'', ' ', el('a',{href:'https://youtu.be/'+encodeURIComponent(y.id),target:'_blank',rel:'noopener'},'유튜브에서 보기 ↗'));
+    list.querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-pressed',String(i===k)));
+  }
+  if(eps.length>1){ list.append(el('div',{class:'vlab'},'전체 편 보기'));
+    eps.forEach((y,k)=>{ const b=el('button',{type:'button',class:'vitem','aria-pressed':'false'}); b.append(el('img',{src:'https://i.ytimg.com/vi/'+encodeURIComponent(y.id)+'/mqdefault.jpg',alt:'',loading:'lazy'}), el('span',{class:'vt'}, el('b',{},y.ep||''), el('span',{},y.title||''), el('small',{},y.len||''))); b.addEventListener('click',()=>show(k,true)); list.append(b); }); }
+  c.append(w, nt, list); host.append(c); show(0,false);
 }
 
 // ---------------- rendering ----------------
@@ -1133,7 +1155,7 @@ $('editBtn').addEventListener('click',()=>{ state.editing=!state.editing; $('edi
 $('refreshBtn').addEventListener('click',requestRefresh);
 let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(renderMain,150); });
 
-let renderQueued=false; function queue(){ if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; renderRail(); renderRunInfo(); renderBriefing(); renderMain(); }); }
+let renderQueued=false; function queue(){ if(renderQueued) return; renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; renderRail(); renderRunInfo(); renderBriefing(); renderBasics(); renderMain(); }); }
 function subscribeSel(){
   if(state.unsubSel){ state.unsubSel(); state.unsubSel=null; }
   const code=state.sel; if(!code||!state.db) return;
